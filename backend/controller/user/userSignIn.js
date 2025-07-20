@@ -5,49 +5,78 @@ const jwt = require("jsonwebtoken");
 async function userSignInController(req, res) {
   try {
     const { email, password } = req.body;
-    if (!email) {
-      throw new Error("Please Enter a email!");
-    }
-    if (!password) {
-      throw new Error("Please Enter a password!");
+
+    // Validate inputs
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required.",
+        success: false,
+        error: true,
+      });
     }
 
+    // Check if user exists
     const user = await userModel.findOne({ email });
     if (!user) {
-      throw new Error("User Not Found !");
+      return res.status(404).json({
+        message: "User not found!",
+        success: false,
+        error: true,
+      });
     }
 
-    const checkPassword = await bcrypt.compare(password, user.password);
-
-    if (checkPassword) {
-      const tokenData = {
-        _id: user._id,
-        email: user.email,
-      };
-      const token = await jwt.sign(tokenData, process.env.TOKEN_SECRET_KEY, {
-        expiresIn: 60 * 60 * 8,
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Incorrect credentials!",
+        success: false,
+        error: true,
       });
+    }
 
-      const tokenOpt = {
-        httpOnly : true,
-        secure : true,
-      }
-      res.cookie("token",token,tokenOpt).json({
-        message: "Login Successfully !",
-        data: token,
+    // Generate JWT token
+    const tokenPayload = {
+      _id: user._id,
+      email: user.email,
+    };
+
+    const token = jwt.sign(tokenPayload, process.env.TOKEN_SECRET_KEY, {
+      expiresIn: "8h",
+    });
+
+    // Set cookie options
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,          // Ensure HTTPS
+      sameSite: "None",      // Required for cross-site cookies
+      maxAge: 1000 * 60 * 60 * 8, // 8 hours
+    };
+
+    // Send cookie and response
+    res
+      .cookie("token", token, cookieOptions)
+      .status(200)
+      .json({
+        message: "Login successfully!",
+        data: {
+          token,
+          user: {
+            _id: user._id,
+            email: user.email,
+            name: user.name,
+          },
+        },
         success: true,
         error: false,
       });
-    } else {
-      throw new Error("Incorrect Credentials !");
-    }
 
-    
   } catch (error) {
-    res.json({
-      message: error.message || error,
-      error: true,
+    console.error("Login Error:", error);
+    res.status(500).json({
+      message: error.message || "Something went wrong during login.",
       success: false,
+      error: true,
     });
   }
 }
