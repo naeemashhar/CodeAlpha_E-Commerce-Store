@@ -44,7 +44,6 @@ const Signup = () => {
         });
 
         const apiData = await dataRes.json();
-        console.log(apiData);
 
         if (apiData.success) {
           toast.success("Profile created successfully!")

@@ -70,7 +70,6 @@ async function userSignInController(req, res) {
         success: true,
         error: false,
       });
-
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({
